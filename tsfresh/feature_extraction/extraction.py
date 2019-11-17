@@ -47,6 +47,7 @@ def extract_features(timeseries_container, default_fc_parameters=None,
                      n_jobs=defaults.N_PROCESSES, show_warnings=defaults.SHOW_WARNINGS,
                      disable_progressbar=defaults.DISABLE_PROGRESSBAR,
                      impute_function=defaults.IMPUTE_FUNCTION,
+                     custom_functions=defaults.CUSTOM_FUNCTIONS,
                      profile=defaults.PROFILING,
                      profiling_filename=defaults.PROFILING_FILENAME,
                      profiling_sorting=defaults.PROFILING_SORTING,
@@ -173,6 +174,7 @@ def extract_features(timeseries_container, default_fc_parameters=None,
                                 column_kind=column_kind,
                                 n_jobs=n_jobs, chunk_size=chunksize,
                                 disable_progressbar=disable_progressbar,
+                                custom_functions=custom_functions,
                                 default_fc_parameters=default_fc_parameters,
                                 kind_to_fc_parameters=kind_to_fc_parameters,
                                 distributor=distributor)
@@ -251,7 +253,7 @@ def generate_data_chunk_format(df, column_id, column_kind, column_value):
 
 def _do_extraction(df, column_id, column_value, column_kind,
                    default_fc_parameters, kind_to_fc_parameters,
-                   n_jobs, chunk_size, disable_progressbar, distributor):
+                   n_jobs, chunk_size, custom_functions, disable_progressbar, distributor):
     """
     Wrapper around the _do_extraction_on_chunk, which calls it on all chunks in the data frame.
     A chunk is a subset of the data, with a given kind and id - so a single time series.
@@ -320,6 +322,7 @@ def _do_extraction(df, column_id, column_value, column_kind,
 
     result = distributor.map_reduce(_do_extraction_on_chunk, data=data_in_chunks,
                                     chunk_size=chunk_size,
+                                    custom_functions=custom_functions,
                                     function_kwargs=kwargs)
     distributor.close()
 
@@ -335,7 +338,7 @@ def _do_extraction(df, column_id, column_value, column_kind,
     return result
 
 
-def _do_extraction_on_chunk(chunk, default_fc_parameters, kind_to_fc_parameters):
+def _do_extraction_on_chunk(chunk, custom_functions, default_fc_parameters, kind_to_fc_parameters):
     """
     Main function of this module: use the feature calculators defined in the
     default_fc_parameters or kind_to_fc_parameters parameters and extract all
@@ -364,7 +367,11 @@ def _do_extraction_on_chunk(chunk, default_fc_parameters, kind_to_fc_parameters)
 
     def _f():
         for function_name, parameter_list in fc_parameters.items():
-            func = getattr(feature_calculators, function_name)
+            if hasattr(feature_calculators, function_name):
+                func = getattr(feature_calculators, function_name)
+            else:
+                assert custom_functions is not None
+                func = custom_functions[function_name]
 
             # If the function uses the index, pass is at as a pandas Series.
             # Otherwise, convert to numpy array

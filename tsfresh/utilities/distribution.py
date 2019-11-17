@@ -16,7 +16,7 @@ from multiprocessing import Pool
 from tqdm import tqdm
 
 
-def _function_with_partly_reduce(chunk_list, map_function, kwargs):
+def _function_with_partly_reduce(custom_functions, chunk_list, map_function, kwargs):
     """
     Small helper function to call a function (map_function)
     on a list of data chunks (chunk_list) and convert the results into
@@ -34,7 +34,7 @@ def _function_with_partly_reduce(chunk_list, map_function, kwargs):
     :rtype: list
     """
     kwargs = kwargs or {}
-    results = (map_function(chunk, **kwargs) for chunk in chunk_list)
+    results = (map_function(chunk, custom_functions, **kwargs) for chunk in chunk_list)
     results = list(itertools.chain.from_iterable(results))
     return results
 
@@ -99,7 +99,7 @@ class DistributorBaseClass:
             chunk_size += 1
         return chunk_size
 
-    def map_reduce(self, map_function, data, function_kwargs=None, chunk_size=None, data_length=None):
+    def map_reduce(self, map_function, data, custom_functions=None, function_kwargs=None, chunk_size=None, data_length=None):
         """
         This method contains the core functionality of the DistributorBaseClass class.
         
@@ -140,17 +140,17 @@ class DistributorBaseClass:
 
         if hasattr(self, "progressbar_title"):
             total_number_of_expected_results = math.ceil(data_length / chunk_size)
-            result = tqdm(self.distribute(_function_with_partly_reduce, chunk_generator, map_kwargs),
+            result = tqdm(self.distribute(_function_with_partly_reduce, chunk_generator, custom_functions, map_kwargs),
                           total=total_number_of_expected_results,
                           desc=self.progressbar_title, disable=self.disable_progressbar)
         else:
-            result = self.distribute(_function_with_partly_reduce, chunk_generator, map_kwargs),
+            result = self.distribute(_function_with_partly_reduce, chunk_generator, custom_functions, map_kwargs),
 
         result = list(itertools.chain.from_iterable(result))
 
         return result
 
-    def distribute(self, func, partitioned_chunks, kwargs):
+    def distribute(self, func, partitioned_chunks, custom_functions, kwargs):
         """
         This abstract base function distributes the work among workers, which can be threads or nodes in a cluster.
         Must be implemented in the derived classes.
@@ -192,7 +192,7 @@ class MapDistributor(DistributorBaseClass):
         self.disable_progressbar = disable_progressbar
         self.progressbar_title = progressbar_title
 
-    def distribute(self, func, partitioned_chunks, kwargs):
+    def distribute(self, func, partitioned_chunks, custom_functions, kwargs):
         """
         Calculates the features in a sequential fashion by pythons map command
 
@@ -207,7 +207,7 @@ class MapDistributor(DistributorBaseClass):
         :return: The result of the calculation as a list - each item should be the result of the application of func
             to a single element.
         """
-        return map(partial(func, **kwargs), partitioned_chunks)
+        return map(partial(func, custom_functions, **kwargs), partitioned_chunks)
 
     def calculate_best_chunk_size(self, data_length):
         """
@@ -243,7 +243,7 @@ class LocalDaskDistributor(DistributorBaseClass):
         self.client = Client(cluster)
         self.n_workers = n_workers
 
-    def distribute(self, func, partitioned_chunks, kwargs):
+    def distribute(self, func, partitioned_chunks, custom_functions, kwargs):
         """
         Calculates the features in a parallel fashion by distributing the map command to the dask workers on a local
         machine
@@ -263,7 +263,7 @@ class LocalDaskDistributor(DistributorBaseClass):
         if isinstance(partitioned_chunks, Iterable):
             # since dask 2.0.0 client map no longer accepts iteratables
             partitioned_chunks = list(partitioned_chunks)
-        result = self.client.gather(self.client.map(partial(func, **kwargs), partitioned_chunks))
+        result = self.client.gather(self.client.map(partial(func, custom_functions, **kwargs), partitioned_chunks))
         return [item for sublist in result for item in sublist]
 
     def close(self):
@@ -304,7 +304,7 @@ class ClusterDaskDistributor(DistributorBaseClass):
             chunk_size += 1
         return chunk_size
 
-    def distribute(self, func, partitioned_chunks, kwargs):
+    def distribute(self, func, partitioned_chunks, custom_functions, kwargs):
         """
         Calculates the features in a parallel fashion by distributing the map command to the dask workers on a cluster
 
@@ -320,7 +320,7 @@ class ClusterDaskDistributor(DistributorBaseClass):
             to a single element.
         """
 
-        result = self.client.gather(self.client.map(partial(func, **kwargs), partitioned_chunks))
+        result = self.client.gather(self.client.map(partial(func, custom_functions, **kwargs), partitioned_chunks))
         return [item for sublist in result for item in sublist]
 
     def close(self):
@@ -351,7 +351,7 @@ class MultiprocessingDistributor(DistributorBaseClass):
         self.disable_progressbar = disable_progressbar
         self.progressbar_title = progressbar_title
 
-    def distribute(self, func, partitioned_chunks, kwargs):
+    def distribute(self, func, partitioned_chunks, custom_functions, kwargs):
         """
         Calculates the features in a parallel fashion by distributing the map command to a thread pool
 
@@ -366,7 +366,7 @@ class MultiprocessingDistributor(DistributorBaseClass):
         :return: The result of the calculation as a list - each item should be the result of the application of func
             to a single element.
         """
-        return self.pool.imap_unordered(partial(func, **kwargs), partitioned_chunks)
+        return self.pool.imap_unordered(partial(func, custom_functions, **kwargs), partitioned_chunks)
 
     def close(self):
         """
