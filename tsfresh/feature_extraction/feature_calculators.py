@@ -1489,27 +1489,23 @@ def sample_entropy(x):
     tolerance = 0.2 * np.std(x) # 0.2 is a common value for r - why?
 
     n = len(x)
-    prev = np.zeros(n)
-    curr = np.zeros(n)
-    A = np.zeros((1, 1))  # number of matches for m = [1,...,template_length - 1]
-    B = np.zeros((1, 1))  # number of matches for m = [1,...,template_length]
+    prev = np.zeros(n, dtype=int)
+    curr = np.zeros(n, dtype=int)
+    A = np.zeros((1, 1))  # number of matches for m = [1,...,sample_length - 1]
+    B = np.zeros((1, 1))  # number of matches for m = [1,...,sample_length]
 
     for i in range(n - 1):
         nj = n - i - 1
         ts1 = x[i]
-        for jj in range(nj):
-            j = jj + i + 1
-            if abs(x[j] - ts1) < tolerance:  # distance between two vectors
-                curr[jj] = prev[jj] + 1
-                temp_ts_length = min(sample_length, curr[jj])
-                for m in range(int(temp_ts_length)):
-                    A[m] += 1
-                    if j < n - 1:
-                        B[m] += 1
-            else:
-                curr[jj] = 0
-        for j in range(nj):
-            prev[j] = curr[j]
+        curr[:nj] = 0
+        mask = np.abs(x[i+1:] - x[i]) < tolerance
+        indices = mask.nonzero()[0]
+        if len(indices) > 0:
+            curr[indices] = prev[indices] + 1
+            A[0] += len(indices)
+            if indices[-1] < nj - 1:
+                B[0] += len(indices)
+        prev[:nj] = curr[:nj]
 
     N = n * (n - 1) / 2
     B = np.vstack(([N], B[0]))
