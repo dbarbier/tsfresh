@@ -812,48 +812,52 @@ class FeatureCalculationTestCase(TestCase):
 
     def test_mean_abs_change_quantiles(self):
 
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, list(range(10)), 1,
+        def wrap_change_quantiles(x, ql, qh, isabs, f_agg):
+            param = [{"ql": ql, "qh": qh, "isabs": isabs, "f_agg": f_agg}]
+            return change_quantiles(x, param=param)[0][1]
+
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, list(range(10)), 1,
                                               ql=0.1, qh=0.9, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, list(range(10)), 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, list(range(10)), 0,
                                               ql=0.15, qh=0.18, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0.5,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0.5,
                                               ql=0, qh=1, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0.5,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0.5,
                                               ql=0.1, qh=1, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0,
                                               ql=0.1, qh=0.6, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, -9, 0, 0], 5,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, -9, 0, 0], 5,
                                               ql=0, qh=1, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, -9, 0, 0], 0.5,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, -9, 0, 0], 0.5,
                                               ql=0.1, qh=1, isabs=True, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, -9, 0, 0, 1, 0], 0.75,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, -9, 0, 0, 1, 0], 0.75,
                                               ql=0.1, qh=1, isabs=True, f_agg="mean")
 
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, list(range(10)), 1,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, list(range(10)), 1,
                                               ql=0.1, qh=0.9, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, list(range(10)), 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, list(range(10)), 0,
                                               ql=0.15, qh=0.18, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0,
                                               ql=0, qh=1, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0,
                                               ql=0.1, qh=1, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0,
                                               ql=0.1, qh=0.6, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, -9, 0, 0], 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, -9, 0, 0], 0,
                                               ql=0, qh=1, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, -9, 0, 0], 0.5,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, -9, 0, 0], 0.5,
                                               ql=0.1, qh=1, isabs=False, f_agg="mean")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, -9, 0, 0, 1, 0], 0.25,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, -9, 0, 0, 1, 0], 0.25,
                                               ql=0.1, qh=1, isabs=False, f_agg="mean")
 
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, list(range(10)), 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, list(range(10)), 0,
                                               ql=0.1, qh=0.9, isabs=True, f_agg="std")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 0, 0], 0.5,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 0, 0], 0.5,
                                               ql=0, qh=1, isabs=True, f_agg="std")
 
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, list(range(10)), 0,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, list(range(10)), 0,
                                               ql=0.1, qh=0.9, isabs=False, f_agg="std")
-        self.assertAlmostEqualOnAllArrayTypes(change_quantiles, [0, 1, 0, 1, 0], 1,
+        self.assertAlmostEqualOnAllArrayTypes(wrap_change_quantiles, [0, 1, 0, 1, 0], 1,
                                               ql=0, qh=1, isabs=False, f_agg="std")
 
     def test_value_count(self):
@@ -1157,8 +1161,11 @@ class FeatureCalculationTestCase(TestCase):
     def test_change_quantiles(self):
         """Test change_quantiles function when changing from `sum` to `np.sum`."""
         np.random.seed(0)
-        res = change_quantiles(np.random.rand(10000) * 1000, 0.1, 0.2, False, 'mean')
-        self.assertAlmostEqual(res, -0.9443846621365727)
+        param = [{"ql": 0.1, "qh": 0.2, "isabs": False, "f_agg": "mean"}]
+        expected_index = ["ql_0.1__qh_0.2__isabs_False__f_agg_\"mean\""]
+        res = pd.Series(dict(change_quantiles(np.random.rand(10000) * 1000, param)))
+        self.assertCountEqual(list(res.index), expected_index)
+        self.assertAlmostEqual(res["ql_0.1__qh_0.2__isabs_False__f_agg_\"mean\""], -0.9443846621365727)
 
 
 class FriedrichTestCase(TestCase):

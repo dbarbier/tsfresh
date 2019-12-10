@@ -1324,8 +1324,8 @@ def ar_coefficient(x, param):
     return [(key, value) for key, value in res.items()]
 
 
-@set_property("fctype", "simple")
-def change_quantiles(x, ql, qh, isabs, f_agg):
+@set_property("fctype", "combiner")
+def change_quantiles(x, param):
     """
     First fixes a corridor given by the quantiles ql and qh of the distribution of x.
     Then calculates the average, absolute value of consecutive changes of the series x inside this corridor.
@@ -1335,39 +1335,54 @@ def change_quantiles(x, ql, qh, isabs, f_agg):
 
     :param x: the time series to calculate the feature of
     :type x: numpy.ndarray
-    :param ql: the lower quantile of the corridor
-    :type ql: float
-    :param qh: the higher quantile of the corridor
-    :type qh: float
-    :param isabs: should the absolute differences be taken?
-    :type isabs: bool
-    :param f_agg: the aggregator function that is applied to the differences in the bin
-    :type f_agg: str, name of a numpy function (e.g. mean, var, std, median)
+    :param param: contains dictionaries {"ql": ql, "qh": qh, "isabs": isabs, "f_agg": f_agg} with ql and qh
+                  being floats between 0 and 1, the lower and higher quantiles of the corridor, isabs bool,
+                  whether absolute differences should be taken, and f_agg a string, name of a numpy function
+                  (e.g. mean, var, std, median) which is applied as an aggregator function to the
+                  differences in the bin.
+    :type param: list
 
-    :return: the value of this feature
-    :return type: float
+    :return: the different feature values
+    :return type: list
     """
-    if ql >= qh:
-        return 0
+    if not isinstance(x, np.ndarray):
+        x = np.asarray(x)
 
+    res = {}
+    all_quantiles = [q for parameter_combination in param
+                     for q in (parameter_combination["ql"], parameter_combination["qh"])]
+    unique_quantiles = np.unique(all_quantiles)
+    # np.quantile requires Numpy 1.15, use np.percentile until this requirement is fulfilled
+    quantiles = np.percentile(x, 100.0 * unique_quantiles)
+    dict_quantiles = {q: v for q, v in zip(unique_quantiles, quantiles)}
     div = np.diff(x)
-    if isabs:
-        div = np.abs(div)
-    # All values that originate from the corridor between the quantiles ql and qh will have the category 0,
-    # other will be np.NaN
-    try:
-        bin_cat = pd.qcut(x, [ql, qh], labels=False)
-        bin_cat_0 = bin_cat == 0
-    except ValueError:  # Occurs when ql are qh effectively equal, e.g. x is not long enough or is too categorical
-        return 0
-    # We only count changes that start and end inside the corridor
-    ind = (bin_cat_0 & _roll(bin_cat_0, 1))[1:]
-    if np.sum(ind) == 0:
-        return 0
-    else:
-        ind_inside_corridor = np.where(ind == 1)
-        aggregator = getattr(np, f_agg)
-        return aggregator(div[ind_inside_corridor])
+    absdiv = np.abs(div)
+    for parameter_combination in param:
+        ql = parameter_combination["ql"]
+        qh = parameter_combination["qh"]
+        isabs = parameter_combination["isabs"]
+        f_agg = parameter_combination["f_agg"]
+        column_name = "ql_{}__qh_{}__isabs_{}__f_agg_\"{}\"".format(ql, qh, isabs, f_agg)
+        if ql >= qh:
+            res[column_name] = 0
+            continue
+
+        # All values that originate from the corridor between the quantiles ql and qh will have the category 0,
+        # other will be np.NaN
+        bin_cat_0 = (x >= dict_quantiles[ql]) & (x <= dict_quantiles[qh])
+        # We only count changes that start and end inside the corridor
+        ind = (bin_cat_0 & _roll(bin_cat_0, 1))[1:]
+        if np.sum(ind) == 0:
+            res[column_name] = 0
+        else:
+            ind_inside_corridor = np.where(ind == 1)
+            aggregator = getattr(np, f_agg)
+            if isabs:
+                res[column_name] = aggregator(absdiv[ind_inside_corridor])
+            else:
+                res[column_name] = aggregator(div[ind_inside_corridor])
+
+    return list(res.items())
 
 
 @set_property("fctype", "simple")
